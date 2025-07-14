@@ -1,61 +1,48 @@
-from flask import Flask, request, jsonify
-from PyPDF2 import PdfReader
 import os
-import google.generativeai as genai
+from flask import Flask, request, jsonify
 from flask_cors import CORS
+import google.generativeai as genai
+import traceback  # ✅ for printing error details
 
 app = Flask(__name__)
 CORS(app)
 
-# Load your Gemini API key from environment variable
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-
-# Function to generate questions using Gemini
-def generate_questions(text, level):
-    model = genai.GenerativeModel("gemini-pro")
-    prompt = f"""
-    Generate 5 multiple choice questions based on the following text. 
-    Follow Bloom's Taxonomy level: {level}. 
-    Provide four options per question and indicate the correct answer.
-
-    Text:
-    {text}
-    """
-    response = model.generate_content(prompt)
-    return response.text
-
-@app.route("/")
+@app.route('/')
 def home():
-    return "✅ Welcome to the Exam Prep Tool API"
+    return "✨ Exam Prep Backend is Running!"
 
-@app.route("/upload", methods=["POST"])
-def upload():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
-    file = request.files['file']
-    reader = PdfReader(file)
-    text = ""
-    for page in reader.pages:
-        text += page.extract_text() or ""
-    
-    return jsonify({"text": text})
-
-@app.route("/generate", methods=["POST"])
-def generate():
-    data = request.get_json()
-    text = data.get("text")
-    level = data.get("level")
-
-    if not text or not level:
-        return jsonify({"error": "Missing text or level"}), 400
-
+@app.route('/upload', methods=['POST'])
+def upload_pdf():
     try:
-        questions = generate_questions(text, level)
-        return jsonify({"questions": questions})
+        uploaded_file = request.files['file']
+        uploaded_file.save('uploaded.pdf')
+        return jsonify({'message': 'PDF uploaded successfully!'})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print("❌ Error during PDF upload:")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+@app.route('/generate', methods=['POST'])
+def generate_questions():
+    try:
+        data = request.get_json()
+        prompt = data.get('text', '')
+
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY is not set in environment variables")
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-pro')
+        response = model.generate_content(prompt)
+        generated_text = response.text
+
+        return jsonify({'result': generated_text})
+    except Exception as e:
+        print("❌ Error during question generation:")
+        traceback.print_exc()  # ✅ Shows full error trace in Render logs
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
