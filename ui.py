@@ -1,9 +1,7 @@
 import streamlit as st
 import requests
-import os
-import json
 
-# Backend URL
+# Backend URL (Render deployed link)
 BACKEND_URL = "https://exam-prep-tool.onrender.com"
 
 st.set_page_config(page_title="AI Exam Prep Tool", page_icon="📘")
@@ -19,19 +17,16 @@ level = st.selectbox(
     ["remember", "understand", "apply", "analyze", "evaluate", "create"]
 )
 
-# When a file is uploaded
 if uploaded_file:
     with st.spinner("📄 Uploading and extracting text from PDF..."):
         try:
-            # Send PDF to backend /upload
             upload_response = requests.post(
                 f"{BACKEND_URL}/upload", 
                 files={'file': uploaded_file}
             )
             upload_response.raise_for_status()
-
-            # Extract text from response
             extracted_text = upload_response.json().get("text", "")
+
             st.success("✅ Text extracted successfully!")
 
             # Button to generate questions
@@ -42,8 +37,8 @@ if uploaded_file:
                         json={"text": extracted_text, "level": level}
                     )
                     generate_response.raise_for_status()
-
                     questions = generate_response.json().get("questions", "")
+
                     st.markdown("### 🎯 Generated Questions")
                     st.text_area("Review Questions Below", questions, height=300)
 
